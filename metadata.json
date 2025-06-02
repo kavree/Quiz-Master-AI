@@ -1,0 +1,5 @@
+{
+  "name": "Quiz Master AI",
+  "description": "A quiz game application where users can test their knowledge against AI-generated questions across various categories and difficulties.",
+  "requestFramePermissions": []
+}
