@@ -1,14 +1,19 @@
 import React from 'react';
 import { GameMode } from '../types';
-import { SINGLE_PLAYER_TARGET_SCORE, MAX_ALLOWED_INCORRECT_ANSWERS } from '../constants';
-import { RefreshIcon, TrophyIcon, ShareIcon, HomeIcon } from './icons'; // Added HomeIcon
+import { SINGLE_PLAYER_TARGET_SCORE } from '../constants'; // MAX_ALLOWED_INCORRECT_ANSWERS removed
+import { RefreshIcon, TrophyIcon, ShareIcon } from './icons'; 
 import { T } from '../localization';
 
 interface GameOverScreenProps {
   gameMode: GameMode;
-  scores: { p1: number; p2: number; consecutiveCorrect?: number; totalIncorrectAnswers?: number };
+  scores: { 
+    p1: number; // For MP P1 and Practice Correct Count
+    p2: number; // For MP P2
+    consecutiveCorrect?: number; // For Single Player Total Correct
+    totalIncorrectAnswers?: number; // For Single Player Total Incorrect
+  };
   onPlayAgain: () => void; 
-  winner?: 1 | 2 | 'draw' | 'player' | 'loss_by_strikes'; 
+  winner?: 1 | 2 | 'draw' | undefined; // undefined for SP completion
 }
 
 const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameMode, scores, onPlayAgain, winner }) => {
@@ -17,17 +22,14 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameMode, scores, onPla
   let showTrophy = false;
 
   if (gameMode === GameMode.SINGLE_PLAYER) {
-    if (winner === 'player') {
-      title = T.congratulations;
-      message = T.singlePlayerWinMessage(SINGLE_PLAYER_TARGET_SCORE);
-      showTrophy = true;
-    } else if (winner === 'loss_by_strikes') {
-      title = T.gameOver;
-      message = T.singlePlayerLossByStrikesMessage(MAX_ALLOWED_INCORRECT_ANSWERS);
-    }
-     else { // Default loss, e.g. if game ends for other reasons or just general loss
-      title = T.gameOver;
-      message = T.singlePlayerLossMessage(scores.consecutiveCorrect);
+    title = T.singlePlayerGameCompleteTitle;
+    message = T.singlePlayerGameCompleteMessage(
+      scores.consecutiveCorrect, // Total correct for SP
+      scores.totalIncorrectAnswers, // Total incorrect for SP
+      SINGLE_PLAYER_TARGET_SCORE // Total questions in SP mode
+    );
+    if ((scores.consecutiveCorrect ?? 0) > 0) { // Show trophy if at least one correct answer
+        showTrophy = true;
     }
   } else if (gameMode === GameMode.MULTIPLAYER) {
     if (winner === 'draw') {
@@ -43,13 +45,22 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameMode, scores, onPla
     }
   } else if (gameMode === GameMode.PRACTICE) {
     title = T.practiceSessionEnded;
-    message = T.practiceSummary(scores.p1);
+    message = T.practiceSummary(scores.p1); // scores.p1 holds correct answers for Practice
     if ((scores.p1 ?? 0) > 0) showTrophy = true; 
   }
 
   const handleShare = () => {
-    const scoreToShare = gameMode === GameMode.SINGLE_PLAYER ? (scores.consecutiveCorrect ?? 0) : scores.p1;
-    const shareText = `ฉันได้คะแนน ${scoreToShare} ใน ${T.gameTitle}! มาเล่นกันเถอะ!`;
+    let shareText: string;
+    if (gameMode === GameMode.SINGLE_PLAYER) {
+        shareText = `ฉันตอบถูก ${scores.consecutiveCorrect ?? 0} ข้อจาก ${SINGLE_PLAYER_TARGET_SCORE} ข้อใน ${T.gameTitle}! มาเล่นกันเถอะ!`;
+    } else if (gameMode === GameMode.MULTIPLAYER) {
+        if (winner === 1) shareText = `${T.player1} ชนะด้วยคะแนน ${scores.p1} ต่อ ${scores.p2} ใน ${T.gameTitle}!`;
+        else if (winner === 2) shareText = `${T.player2} ชนะด้วยคะแนน ${scores.p2} ต่อ ${scores.p1} ใน ${T.gameTitle}!`;
+        else if (winner === 'draw') shareText = `ฉันเสมอด้วยคะแนน ${scores.p1} ใน ${T.gameTitle}!`;
+        else shareText = `ฉันเล่น ${T.gameTitle} ได้ ${scores.p1} คะแนน!`; // Fallback for MP
+    } else { // Practice
+        shareText = `ฉันฝึกซ้อมใน ${T.gameTitle} และตอบถูก ${scores.p1} ข้อ!`;
+    }
     
     let currentUrl = window.location.href;
     let isValidHttpUrl = false;

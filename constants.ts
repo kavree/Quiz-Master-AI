@@ -18,9 +18,11 @@ export const GAME_MODE_ITEMS = Object.values(GameMode).map(gm => ({
   displayName: getGameModeDisplayName(gm),
 }));
 
-export const SINGLE_PLAYER_TARGET_SCORE = 10;
+// For Single Player, this is the total number of questions to be answered.
+export const SINGLE_PLAYER_TARGET_SCORE = 10; 
 export const MULTIPLAYER_QUESTIONS_PER_PLAYER = 5;
-export const MAX_ALLOWED_INCORRECT_ANSWERS = 3; // New constant
+// MAX_ALLOWED_INCORRECT_ANSWERS is no longer used for game-ending logic in Single Player.
+// It could be reintroduced for visual feedback (e.g., "lives") if desired later.
 
 export const GEMINI_MODEL_TEXT = 'gemini-2.5-flash-preview-04-17';
 

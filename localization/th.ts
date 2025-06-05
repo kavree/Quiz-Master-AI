@@ -16,7 +16,7 @@ export const th = {
   incorrect: "ผิด!",
   correctAnswerWas: "คำตอบที่ถูกต้องคือ:",
   questionLabel: "คำถามที่",
-  scoreLabel: "คะแนน",
+  scoreLabel: "คะแนน", // General score label, might be less used now for SP specific
   shareScore: "แชร์ผลลัพธ์",
   shareScoreCopied: "คัดลอกผลลัพธ์ไปยังคลิปบอร์ดแล้ว!",
   shareScoreNotPossible: "ไม่สามารถแชร์ผลลัพธ์หรือคัดลอกไปยังคลิปบอร์ดบนเบราว์เซอร์นี้ได้",
@@ -54,15 +54,20 @@ export const th = {
   // ScoreBoard specific
   player1: "ผู้เล่น 1",
   player2: "ผู้เล่น 2",
-  correctAnswersLabel: "ตอบถูก",
+  correctAnswersLabel: "ตอบถูก", // Used for Practice mode
   questionShortLabel: "ข้อ",
+  singlePlayerScoreCorrect: "ถูก", // For Single Player score display: Correct: X
+  singlePlayerScoreIncorrect: "ผิด", // For Single Player score display: Incorrect: Y
+
 
   // GameOverScreen specific
   gameOver: "จบเกม!",
-  congratulations: "ยินดีด้วย!",
-  singlePlayerWinMessage: (score: number) => `สุดยอด! คุณตอบถูก ${score} ข้อรวด!`,
-  singlePlayerLossMessage: (score: number | undefined) => `คุณตอบถูก ${score ?? 0} ข้อ สู้ต่อไปนะ!`, // Kept as a general fallback
-  singlePlayerLossByStrikesMessage: (incorrectCount: number) => `น่าเสียดาย! คุณตอบผิดครบ ${incorrectCount} ครั้งแล้ว ลองใหม่อีกครั้งนะ!`,
+  congratulations: "ยินดีด้วย!", // Generally for MP wins, SP completion will use its own title
+  singlePlayerGameCompleteTitle: "สรุปผลการเล่น", // Title for SP game completion
+  singlePlayerWinMessage: (score: number) => `สุดยอด! คุณตอบถูก ${score} ข้อรวด!`, // Kept for potential future use, but current SP doesn't "win" this way
+  singlePlayerGameCompleteMessage: (correct: number | undefined, incorrect: number | undefined, total: number) => 
+    `คุณตอบถูก ${correct ?? 0} ข้อ และตอบผิด ${incorrect ?? 0} ข้อ จากทั้งหมด ${total} ข้อ`,
+  // singlePlayerLossByStrikesMessage: (incorrectCount: number) => `น่าเสียดาย! คุณตอบผิดครบ ${incorrectCount} ครั้งแล้ว ลองใหม่อีกครั้งนะ!`, // No longer used
   drawMessage: (score: number) => `เสมอ! ได้คนละ ${score} คะแนน!`,
   player1WinsMessage: (p1Score: number, p2Score: number) => `${th.player1} ชนะ! (${p1Score} ต่อ ${p2Score} คะแนน)`,
   player2WinsMessage: (p1Score: number, p2Score: number) => `${th.player2} ชนะ! (${p2Score} ต่อ ${p1Score} คะแนน)`,

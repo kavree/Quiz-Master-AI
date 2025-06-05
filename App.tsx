@@ -5,11 +5,19 @@ import GameScreen from './components/GameScreen';
 import GameOverScreen from './components/GameOverScreen';
 import { GameMode, Category, Difficulty, QuizQuestion, GameState, GameSettings } from './types';
 import { fetchQuizQuestion } from './services/geminiService';
-import { SINGLE_PLAYER_TARGET_SCORE, MULTIPLAYER_QUESTIONS_PER_PLAYER, FEEDBACK_DELAY_MS, MAX_ALLOWED_INCORRECT_ANSWERS } from './constants';
+import { SINGLE_PLAYER_TARGET_SCORE, MULTIPLAYER_QUESTIONS_PER_PLAYER, FEEDBACK_DELAY_MS } from './constants';
 import { T } from './localization';
 
-// Extend gameOverWinner to include the new loss condition
-type GameOverWinnerType = 1 | 2 | 'draw' | 'player' | 'loss_by_strikes' | undefined;
+// gameOverWinner for Multiplayer and specific Single Player outcomes (if any were kept, but now mostly for MP)
+type GameOverWinnerType = 1 | 2 | 'draw' | undefined;
+
+// Adjusted scores state for clarity in Single Player
+interface ScoresState {
+  p1: number; // Used for Practice mode correct count & Multiplayer P1
+  p2: number; // Used for Multiplayer P2
+  totalCorrectSinglePlayer?: number; // Total correct answers in Single Player
+  totalIncorrectAnswers?: number; // Total incorrect answers in Single Player
+}
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.START_SCREEN);
@@ -18,9 +26,11 @@ const App: React.FC = () => {
   const [currentQuestionData, setCurrentQuestionData] = useState<QuizQuestion | null>(null);
   const [questionsAskedThisSession, setQuestionsAskedThisSession] = useState<string[]>([]);
   
-  const [scores, setScores] = useState<{ p1: number; p2: number; consecutiveCorrect?: number, totalIncorrectAnswers?: number }>({ p1: 0, p2: 0, consecutiveCorrect: 0, totalIncorrectAnswers: 0 });
+  const initialScores: ScoresState = { p1: 0, p2: 0, totalCorrectSinglePlayer: 0, totalIncorrectAnswers: 0 };
+  const [scores, setScores] = useState<ScoresState>(initialScores);
+  
   const [currentPlayerTurn, setCurrentPlayerTurn] = useState<1 | 2>(1);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0); // Overall question index for the current game
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0); // Overall question index (0-based) for the current game
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +43,7 @@ const App: React.FC = () => {
     setGameSettings(null);
     setCurrentQuestionData(null);
     setQuestionsAskedThisSession([]);
-    setScores({ p1: 0, p2: 0, consecutiveCorrect: 0, totalIncorrectAnswers: 0 });
+    setScores(initialScores);
     setCurrentPlayerTurn(1);
     setCurrentQuestionIndex(0);
     setIsLoading(false);
@@ -72,7 +82,7 @@ const App: React.FC = () => {
     setGameSettings(settings);
     setCurrentQuestionData(null); 
     setQuestionsAskedThisSession([]); 
-    setScores({ p1: 0, p2: 0, consecutiveCorrect: 0, totalIncorrectAnswers: 0 });
+    setScores(initialScores);
     setCurrentPlayerTurn(1);
     setCurrentQuestionIndex(0);
     setIsLoading(false); 
@@ -97,78 +107,65 @@ const App: React.FC = () => {
     setIsAnswerRevealed(true);
     const isCorrect = answer === currentQuestionData.correctAnswer;
 
-    // This will hold the scores to be used in the timeout logic
     let updatedScoresAfterAnswer = { ...scores }; 
 
     setScores(prevScores => {
       let nextP1Score = prevScores.p1;
       let nextP2Score = prevScores.p2;
-      let nextConsecutiveCorrect = prevScores.consecutiveCorrect || 0;
+      let nextTotalCorrectSinglePlayer = prevScores.totalCorrectSinglePlayer || 0;
       let nextTotalIncorrectAnswers = prevScores.totalIncorrectAnswers || 0;
 
       if (gameSettings.mode === GameMode.SINGLE_PLAYER) {
           if (isCorrect) {
-            nextConsecutiveCorrect = (prevScores.consecutiveCorrect || 0) + 1;
+            nextTotalCorrectSinglePlayer = (prevScores.totalCorrectSinglePlayer || 0) + 1;
           } else {
-            nextConsecutiveCorrect = 0; // Streak breaks
             nextTotalIncorrectAnswers = (prevScores.totalIncorrectAnswers || 0) + 1;
           }
       } else if (gameSettings.mode === GameMode.MULTIPLAYER) {
           if (currentPlayerTurn === 1 && isCorrect) nextP1Score = prevScores.p1 + 1;
           if (currentPlayerTurn === 2 && isCorrect) nextP2Score = prevScores.p2 + 1;
       } else if (gameSettings.mode === GameMode.PRACTICE) {
-          if (isCorrect) nextP1Score = prevScores.p1 + 1; 
+          if (isCorrect) nextP1Score = prevScores.p1 + 1; // p1 used for Practice correct count
       }
       
       updatedScoresAfterAnswer = {
           p1: nextP1Score,
           p2: nextP2Score,
-          consecutiveCorrect: nextConsecutiveCorrect,
+          totalCorrectSinglePlayer: nextTotalCorrectSinglePlayer,
           totalIncorrectAnswers: nextTotalIncorrectAnswers
       };
       return updatedScoresAfterAnswer;
     });
 
     setTimeout(() => {
-      // Use updatedScoresAfterAnswer which reflects the immediate result of the current answer
-      const currentScores = updatedScoresAfterAnswer;
+      const currentScores = updatedScoresAfterAnswer; // Scores after this answer
+      const nextQuestionOverallIndex = currentQuestionIndex + 1; // Index for the next question if game continues
 
       if (gameSettings.mode === GameMode.SINGLE_PLAYER) {
-          if (isCorrect) {
-            if (currentScores.consecutiveCorrect === SINGLE_PLAYER_TARGET_SCORE) {
-              setGameOverWinner('player');
-              setGameState(GameState.GAME_OVER);
-            } else {
-              setCurrentQuestionIndex(prev => prev + 1);
-              loadNextQuestion();
-            }
-          } else { // Incorrect answer in Single Player
-            if (currentScores.totalIncorrectAnswers && currentScores.totalIncorrectAnswers >= MAX_ALLOWED_INCORRECT_ANSWERS) {
-              setGameOverWinner('loss_by_strikes');
-              setGameState(GameState.GAME_OVER);
-            } else {
-              // Game continues even if incorrect, as long as not 3 strikes
-              setCurrentQuestionIndex(prev => prev + 1);
-              loadNextQuestion();
-            }
+          // Check if the total number of questions for Single Player mode has been reached
+          if (nextQuestionOverallIndex >= SINGLE_PLAYER_TARGET_SCORE) {
+            setGameOverWinner(undefined); // Game ends by completion, no specific winner/loser type
+            setGameState(GameState.GAME_OVER);
+          } else {
+            // Continue to the next question
+            setCurrentQuestionIndex(nextQuestionOverallIndex);
+            loadNextQuestion();
           }
       }
       else if (gameSettings.mode === GameMode.MULTIPLAYER) {
-        const newQuestionIndex = currentQuestionIndex + 1;
-        if (newQuestionIndex >= MULTIPLAYER_QUESTIONS_PER_PLAYER * 2) {
+        if (nextQuestionOverallIndex >= MULTIPLAYER_QUESTIONS_PER_PLAYER * 2) {
           setGameState(GameState.GAME_OVER);
-          // Scores used for determining winner should be the final scores
           if (currentScores.p1 > currentScores.p2) setGameOverWinner(1);
           else if (currentScores.p2 > currentScores.p1) setGameOverWinner(2);
           else setGameOverWinner('draw');
         } else {
           setCurrentPlayerTurn(prevTurn => (prevTurn === 1 ? 2 : 1));
-          setCurrentQuestionIndex(newQuestionIndex);
+          setCurrentQuestionIndex(nextQuestionOverallIndex);
           loadNextQuestion();
         }
       }
       else if (gameSettings.mode === GameMode.PRACTICE) {
-        setCurrentQuestionIndex(prev => prev + 1);
+        setCurrentQuestionIndex(nextQuestionOverallIndex);
         loadNextQuestion();
       }
     }, FEEDBACK_DELAY_MS);
@@ -188,7 +185,14 @@ const App: React.FC = () => {
         onAnswer={handleAnswer}
         isLoading={isLoading}
         error={error}
-        scores={scores}
+        // Pass appropriate score fields based on mode for GameScreen
+        scores={{ 
+            p1: gameSettings.mode === GameMode.PRACTICE ? scores.p1 : (gameSettings.mode === GameMode.MULTIPLAYER ? scores.p1 : (scores.totalCorrectSinglePlayer ?? 0)),
+            p2: scores.p2, 
+            // For GameScreen, pass totalCorrect and totalIncorrect for Single Player if needed by ScoreBoard
+            consecutiveCorrect: scores.totalCorrectSinglePlayer, // Re-purposed for total correct in SP
+            totalIncorrectAnswers: scores.totalIncorrectAnswers
+        }}
         currentPlayerTurn={currentPlayerTurn}
         currentQuestionIndex={currentQuestionIndex}
         isAnswerRevealed={isAnswerRevealed}
@@ -202,7 +206,13 @@ const App: React.FC = () => {
     return (
       <GameOverScreen
         gameMode={gameSettings.mode}
-        scores={scores}
+        // Pass scores directly, GameOverScreen will interpret based on mode
+        scores={{
+          p1: scores.p1, // Still relevant for MP and Practice
+          p2: scores.p2, // Still relevant for MP
+          consecutiveCorrect: scores.totalCorrectSinglePlayer, // totalCorrect for SP summary
+          totalIncorrectAnswers: scores.totalIncorrectAnswers // totalIncorrect for SP summary
+        }}
         onPlayAgain={resetGameState}
         winner={gameOverWinner}
       />

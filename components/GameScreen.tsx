@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { QuizQuestion, GameMode } from '../types';
 import QuestionCard from './QuestionCard';
@@ -13,7 +14,12 @@ interface GameScreenProps {
   onAnswer: (selectedAnswer: string) => void;
   isLoading: boolean;
   error: string | null;
-  scores: { p1: number; p2: number; consecutiveCorrect?: number };
+  scores: { 
+    p1: number; 
+    p2: number; 
+    consecutiveCorrect?: number; 
+    totalIncorrectAnswers?: number; // Added this line
+  };
   currentPlayerTurn?: 1 | 2;
   currentQuestionIndex: number; 
   isAnswerRevealed: boolean;
